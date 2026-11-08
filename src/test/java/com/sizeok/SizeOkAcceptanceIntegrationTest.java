@@ -199,6 +199,39 @@ class SizeOkAcceptanceIntegrationTest {
                 .andExpect(jsonPath("$.recommendationId").value(rec1Id))
                 .andExpect(jsonPath("$.profileMeasurementVersion").value(2))
                 .andExpect(jsonPath("$.chartVersion").value(1));
+
+        // 8. Verify OAuth providers, Google/GitHub OAuth login & profile provisioning, and logout
+        mockMvc.perform(get("/api/v1/auth/providers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value("GOOGLE"));
+
+        MvcResult oauthRes = mockMvc.perform(post("/api/v1/auth/oauth")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "provider": "GOOGLE",
+                                  "email": "priya.google@sizeok.in",
+                                  "name": "Priya Sharma",
+                                  "preferredUnit": "CM",
+                                  "region": "IN"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("priya.google@sizeok.in"))
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.defaultProfileId").isNotEmpty())
+                .andReturn();
+
+        String oauthToken = objectMapper.readTree(oauthRes.getResponse().getContentAsString()).get("accessToken").asText();
+
+        mockMvc.perform(get("/api/v1/users/me")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + oauthToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authProvider").value("GOOGLE"));
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + oauthToken))
+                .andExpect(status().isNoContent());
     }
 }
 

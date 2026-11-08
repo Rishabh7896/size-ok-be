@@ -12,8 +12,7 @@ public final class IdentityDtos {
     }
 
     public record RegisterRequest(
-            String email,
-            String phone,
+            @NotBlank(message = "email is required") String email,
             @NotBlank(message = "password is required") String password,
             String name,
             String preferredUnit,
@@ -23,16 +22,31 @@ public final class IdentityDtos {
     }
 
     public record LoginRequest(
-            String email,
-            String phone,
+            @NotBlank(message = "email is required") String email,
             @NotBlank(message = "password is required") String password
+    ) {
+    }
+
+    public record OAuthLoginRequest(
+            @NotBlank(message = "provider is required") String provider,
+            String idToken,
+            String email,
+            String name,
+            String preferredUnit,
+            String region
+    ) {
+    }
+
+    public record AuthProviderInfo(
+            String id,
+            String name,
+            boolean enabled
     ) {
     }
 
     public record AuthResponse(
             String userId,
             String email,
-            String phone,
             String role,
             String accessToken,
             String refreshToken,
@@ -43,7 +57,6 @@ public final class IdentityDtos {
     public record UserResponse(
             String id,
             String email,
-            String phone,
             String authProvider,
             String role,
             String status,
@@ -52,8 +65,7 @@ public final class IdentityDtos {
     }
 
     public record UpdateUserRequest(
-            String email,
-            String phone
+            String email
     ) {
     }
 

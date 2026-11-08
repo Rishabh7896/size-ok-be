@@ -94,8 +94,11 @@ mvn spring-boot:run
 
 | Domain | Method & Endpoint | Description |
 | :--- | :--- | :--- |
-| **Auth** | `POST /auth/register` | Register account and create primary profile |
-| **Auth** | `POST /auth/login` | Authenticate and receive JWT access/refresh tokens |
+| **Auth** | `GET /auth/providers` | List enabled authentication providers (`GOOGLE`, `APPLE`, `GITHUB`, `LOCAL`) |
+| **Auth** | `POST /auth/register` | Register account with email and password and create primary profile |
+| **Auth** | `POST /auth/login` | Authenticate with email and password and receive JWT tokens |
+| **Auth** | `POST /auth/oauth` | Authenticate or register via OAuth (`GOOGLE`, `APPLE`, `GITHUB`) |
+| **Auth** | `POST /auth/logout` | Revoke active user sessions and log out |
 | **User & Privacy** | `GET, PATCH, DELETE /users/me` | Get, update, or initiate account deletion |
 | **User & Privacy** | `GET, PATCH /users/me/privacy` | View or update consent preferences |
 | **User & Privacy** | `GET /users/me/export` | Export user account and profile data |

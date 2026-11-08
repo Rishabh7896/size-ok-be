@@ -5,7 +5,6 @@
 CREATE TABLE users (
     id VARCHAR(64) PRIMARY KEY,
     email VARCHAR(255) UNIQUE,
-    phone VARCHAR(64) UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     auth_provider VARCHAR(50) NOT NULL DEFAULT 'LOCAL',
     role VARCHAR(50) NOT NULL DEFAULT 'USER',

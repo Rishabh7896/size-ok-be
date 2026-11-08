@@ -7,9 +7,11 @@ import com.sizeok.common.security.AuthenticatedUser;
 import com.sizeok.common.security.CurrentUserProvider;
 import com.sizeok.common.security.JwtTokenService;
 import com.sizeok.common.util.IdGenerator;
+import com.sizeok.identity.controller.IdentityDtos.AuthProviderInfo;
 import com.sizeok.identity.controller.IdentityDtos.AuthResponse;
 import com.sizeok.identity.controller.IdentityDtos.DeletionRequestResponse;
 import com.sizeok.identity.controller.IdentityDtos.LoginRequest;
+import com.sizeok.identity.controller.IdentityDtos.OAuthLoginRequest;
 import com.sizeok.identity.controller.IdentityDtos.PrivacySettingsResponse;
 import com.sizeok.identity.controller.IdentityDtos.RegisterRequest;
 import com.sizeok.identity.controller.IdentityDtos.UpdatePrivacySettingsRequest;
@@ -75,15 +77,11 @@ public class IdentityService {
     @Transactional
     public AuthResponse register(RegisterRequest request) {
         String email = request.email() != null && !request.email().isBlank() ? request.email().trim().toLowerCase() : null;
-        String phone = request.phone() != null && !request.phone().isBlank() ? request.phone().trim() : null;
-        if (email == null && phone == null) {
-            throw new BadRequestException("EMAIL_OR_PHONE_REQUIRED", "Either email or phone number is required");
+        if (email == null) {
+            throw new BadRequestException("EMAIL_REQUIRED", "Email is required");
         }
-        if (email != null && userRepository.findByEmailIgnoreCase(email).isPresent()) {
+        if (userRepository.findByEmailIgnoreCase(email).isPresent()) {
             throw new BadRequestException("EMAIL_ALREADY_EXISTS", "User already registered with email: " + email);
-        }
-        if (phone != null && userRepository.findByPhone(phone).isPresent()) {
-            throw new BadRequestException("PHONE_ALREADY_EXISTS", "User already registered with phone: " + phone);
         }
 
         OffsetDateTime now = OffsetDateTime.now();
@@ -91,7 +89,6 @@ public class IdentityService {
         User user = new User(
                 IdGenerator.newId("usr"),
                 email,
-                phone,
                 passwordEncoder.encode(request.password()),
                 "LOCAL",
                 role,
@@ -118,21 +115,16 @@ public class IdentityService {
         String refreshToken = createSession(user.getId(), now);
         String accessToken = jwtTokenService.generateAccessToken(user.getId(), user.getEmail(), user.getRole());
         auditService.record(user.getId(), "USER_REGISTERED", "USER", user.getId(), null);
-        return new AuthResponse(user.getId(), user.getEmail(), user.getPhone(), user.getRole(), accessToken, refreshToken, defaultProfile.id());
+        return new AuthResponse(user.getId(), user.getEmail(), user.getRole(), accessToken, refreshToken, defaultProfile.id());
     }
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        User user;
-        if (request.email() != null && !request.email().isBlank()) {
-            user = userRepository.findByEmailIgnoreCase(request.email().trim())
-                    .orElseThrow(() -> new BadRequestException("INVALID_CREDENTIALS", "Invalid credentials"));
-        } else if (request.phone() != null && !request.phone().isBlank()) {
-            user = userRepository.findByPhone(request.phone().trim())
-                    .orElseThrow(() -> new BadRequestException("INVALID_CREDENTIALS", "Invalid credentials"));
-        } else {
-            throw new BadRequestException("EMAIL_OR_PHONE_REQUIRED", "Email or phone is required to login");
+        if (request.email() == null || request.email().isBlank()) {
+            throw new BadRequestException("EMAIL_REQUIRED", "Email is required to login");
         }
+        User user = userRepository.findByEmailIgnoreCase(request.email().trim())
+                .orElseThrow(() -> new BadRequestException("INVALID_CREDENTIALS", "Invalid credentials"));
         if (!"ACTIVE".equals(user.getStatus()) || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new BadRequestException("INVALID_CREDENTIALS", "Invalid credentials or inactive account");
         }
@@ -141,7 +133,120 @@ public class IdentityService {
         String accessToken = jwtTokenService.generateAccessToken(user.getId(), user.getEmail(), user.getRole());
         List<Profile> profiles = profileRepository.findByUserIdOrderByPrimaryDescCreatedAtAsc(user.getId());
         String defaultProfileId = profiles.isEmpty() ? null : profiles.getFirst().getId();
-        return new AuthResponse(user.getId(), user.getEmail(), user.getPhone(), user.getRole(), accessToken, refreshToken, defaultProfileId);
+        return new AuthResponse(user.getId(), user.getEmail(), user.getRole(), accessToken, refreshToken, defaultProfileId);
+    }
+
+    @Transactional
+    public AuthResponse oauthLogin(OAuthLoginRequest request) {
+        String provider = request.provider() != null ? request.provider().trim().toUpperCase() : "";
+        if (!List.of("GOOGLE", "APPLE", "GITHUB").contains(provider)) {
+            throw new BadRequestException("UNSUPPORTED_AUTH_PROVIDER", "Unsupported OAuth provider: " + provider);
+        }
+
+        String email = request.email() != null && !request.email().isBlank()
+                ? request.email().trim().toLowerCase()
+                : extractClaimFromJwt(request.idToken(), "email");
+        String displayName = request.name() != null && !request.name().isBlank()
+                ? request.name().trim()
+                : extractClaimFromJwt(request.idToken(), "name");
+
+        if (email == null || email.isBlank()) {
+            throw new BadRequestException("EMAIL_REQUIRED", "Email is required for " + provider + " authentication");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        User user = userRepository.findByEmailIgnoreCase(email).orElse(null);
+        String defaultProfileId;
+
+        if (user == null) {
+            user = new User(
+                    IdGenerator.newId("usr"),
+                    email,
+                    passwordEncoder.encode(UUID.randomUUID().toString()),
+                    provider,
+                    "USER",
+                    "ACTIVE",
+                    now,
+                    now
+            );
+            userRepository.save(user);
+            consentRecordRepository.save(new ConsentRecord(IdGenerator.newId("cns"), user.getId(), true, true, false, false, now));
+
+            String profileName = (displayName != null && !displayName.isBlank())
+                    ? displayName
+                    : email.split("@")[0];
+            ProfileResponse defaultProfile = profileService.createProfileForUser(
+                    user.getId(),
+                    new CreateProfileRequest(
+                            profileName,
+                            "SELF",
+                            "MENS",
+                            request.preferredUnit() != null && !request.preferredUnit().isBlank() ? request.preferredUnit() : "CM",
+                            request.region() != null && !request.region().isBlank() ? request.region() : "IN",
+                            "REGULAR",
+                            true
+                    )
+            );
+            defaultProfileId = defaultProfile.id();
+            auditService.record(user.getId(), "USER_OAUTH_REGISTERED", "USER", user.getId(), "{\"provider\":\"" + provider + "\"}");
+        } else {
+            if (!"ACTIVE".equals(user.getStatus())) {
+                throw new BadRequestException("ACCOUNT_INACTIVE", "Account is not active");
+            }
+            List<Profile> profiles = profileRepository.findByUserIdOrderByPrimaryDescCreatedAtAsc(user.getId());
+            if (profiles.isEmpty()) {
+                String profileName = (displayName != null && !displayName.isBlank())
+                        ? displayName
+                        : email.split("@")[0];
+                ProfileResponse created = profileService.createProfileForUser(
+                        user.getId(),
+                        new CreateProfileRequest(profileName, "SELF", "MENS", "CM", "IN", "REGULAR", true)
+                );
+                defaultProfileId = created.id();
+            } else {
+                defaultProfileId = profiles.getFirst().getId();
+            }
+            auditService.record(user.getId(), "USER_OAUTH_LOGIN", "USER", user.getId(), "{\"provider\":\"" + provider + "\"}");
+        }
+
+        String refreshToken = createSession(user.getId(), now);
+        String accessToken = jwtTokenService.generateAccessToken(user.getId(), user.getEmail(), user.getRole());
+        return new AuthResponse(user.getId(), user.getEmail(), user.getRole(), accessToken, refreshToken, defaultProfileId);
+    }
+
+    @Transactional
+    public void logout() {
+        currentUserProvider.getCurrentUserOptional().ifPresent(current -> {
+            for (UserSession s : userSessionRepository.findByUserId(current.userId())) {
+                if (!s.isRevoked()) {
+                    s.setRevoked(true);
+                    userSessionRepository.save(s);
+                }
+            }
+            auditService.record(current.userId(), "USER_LOGGED_OUT", "USER", current.userId(), null);
+        });
+    }
+
+    public List<AuthProviderInfo> getSupportedProviders() {
+        return List.of(
+                new AuthProviderInfo("GOOGLE", "Google", true),
+                new AuthProviderInfo("APPLE", "Apple", true),
+                new AuthProviderInfo("GITHUB", "GitHub", true),
+                new AuthProviderInfo("LOCAL", "Email", true)
+        );
+    }
+
+    private String extractClaimFromJwt(String token, String claim) {
+        if (token == null || token.isBlank()) return null;
+        try {
+            String[] parts = token.split("\\.");
+            if (parts.length < 2) return null;
+            String payloadJson = new String(java.util.Base64.getUrlDecoder().decode(parts[1]), java.nio.charset.StandardCharsets.UTF_8);
+            com.fasterxml.jackson.databind.JsonNode node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(payloadJson);
+            return node.hasNonNull(claim) ? node.get(claim).asText() : null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -158,7 +263,6 @@ public class IdentityService {
         User user = userRepository.findById(current.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", current.userId()));
         if (request.email() != null && !request.email().isBlank()) user.setEmail(request.email().trim().toLowerCase());
-        if (request.phone() != null && !request.phone().isBlank()) user.setPhone(request.phone().trim());
         user.setUpdatedAt(OffsetDateTime.now());
         userRepository.save(user);
         return toUserResponse(user);
@@ -172,7 +276,6 @@ public class IdentityService {
         OffsetDateTime now = OffsetDateTime.now();
         user.setStatus("DELETION_PENDING");
         user.setEmail("deleted_" + user.getId() + "@anonymized.sizeok.local");
-        user.setPhone(null);
         user.setUpdatedAt(now);
         userRepository.save(user);
         for (UserSession s : userSessionRepository.findByUserId(user.getId())) {
@@ -223,7 +326,7 @@ public class IdentityService {
     }
 
     private UserResponse toUserResponse(User u) {
-        return new UserResponse(u.getId(), u.getEmail(), u.getPhone(), u.getAuthProvider(), u.getRole(), u.getStatus(), u.getCreatedAt());
+        return new UserResponse(u.getId(), u.getEmail(), u.getAuthProvider(), u.getRole(), u.getStatus(), u.getCreatedAt());
     }
 
     private PrivacySettingsResponse toPrivacyResponse(ConsentRecord c) {

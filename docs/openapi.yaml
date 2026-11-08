@@ -14,6 +14,12 @@ components:
       scheme: bearer
       bearerFormat: JWT
 paths:
+  /auth/providers:
+    get:
+      summary: List supported authentication providers
+      security: []
+      responses:
+        "200": { description: Supported providers }
   /auth/register:
     post:
       summary: Register user account and default profile
@@ -26,6 +32,17 @@ paths:
       security: []
       responses:
         "200": { description: Authenticated }
+  /auth/oauth:
+    post:
+      summary: Authenticate or register user with Google, Apple, or GitHub
+      security: []
+      responses:
+        "200": { description: Authenticated via OAuth }
+  /auth/logout:
+    post:
+      summary: Revoke active user sessions and log out
+      responses:
+        "204": { description: Logged out }
   /users/me:
     get: { summary: Retrieve current user, responses: { "200": { description: OK } } }
     patch: { summary: Update current user, responses: { "200": { description: OK } } }

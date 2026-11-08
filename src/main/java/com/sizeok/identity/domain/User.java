@@ -18,9 +18,6 @@ public class User {
     @Column(unique = true, length = 255)
     private String email;
 
-    @Column(unique = true, length = 64)
-    private String phone;
-
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
@@ -42,10 +39,9 @@ public class User {
     public User() {
     }
 
-    public User(String id, String email, String phone, String passwordHash, String authProvider, String role, String status, OffsetDateTime createdAt, OffsetDateTime updatedAt) {
+    public User(String id, String email, String passwordHash, String authProvider, String role, String status, OffsetDateTime createdAt, OffsetDateTime updatedAt) {
         this.id = id;
         this.email = email;
-        this.phone = phone;
         this.passwordHash = passwordHash;
         this.authProvider = authProvider;
         this.role = role;
@@ -66,14 +62,6 @@ public class User {
         this.email = email;
     }
 
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
-
     public String getPasswordHash() {
         return passwordHash;
     }
@@ -84,6 +72,10 @@ public class User {
 
     public String getAuthProvider() {
         return authProvider;
+    }
+
+    public void setAuthProvider(String authProvider) {
+        this.authProvider = authProvider;
     }
 
     public String getRole() {
