@@ -1,0 +1,88 @@
+openapi: 3.1.0
+info:
+  title: SizeOK Sizing & Recommendation Backend API
+  version: 1.0.0
+  description: REST API contract for SizeOK modular monolith backend.
+servers:
+  - url: http://localhost:8080/api/v1
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+paths:
+  /auth/register:
+    post:
+      summary: Register user account and default profile
+      security: []
+      responses:
+        "201": { description: User registered }
+  /auth/login:
+    post:
+      summary: Authenticate user and issue JWT tokens
+      security: []
+      responses:
+        "200": { description: Authenticated }
+  /users/me:
+    get: { summary: Retrieve current user, responses: { "200": { description: OK } } }
+    patch: { summary: Update current user, responses: { "200": { description: OK } } }
+    delete: { summary: Initiate account deletion, responses: { "200": { description: Deletion initiated } } }
+  /users/me/export:
+    get: { summary: Export user data, responses: { "200": { description: Exported } } }
+  /users/me/privacy:
+    get: { summary: Get privacy settings, responses: { "200": { description: OK } } }
+    patch: { summary: Update privacy settings, responses: { "200": { description: OK } } }
+  /users/me/deletion-request:
+    post: { summary: Request account deletion, responses: { "200": { description: Requested } } }
+  /profiles:
+    post: { summary: Create measurement profile, responses: { "201": { description: Created } } }
+    get: { summary: List profiles, responses: { "200": { description: OK } } }
+  /profiles/{id}:
+    get: { summary: Get profile, responses: { "200": { description: OK }, "403": { description: Access denied } } }
+    patch: { summary: Update profile, responses: { "200": { description: OK } } }
+  /profiles/{id}/measurement-sets:
+    post: { summary: Save versioned measurements, responses: { "201": { description: Created } } }
+    get: { summary: Get measurement history, responses: { "200": { description: OK } } }
+  /measurement-sets/{id}:
+    get: { summary: Get measurement version, responses: { "200": { description: OK } } }
+    patch: { summary: Correct measurements (creates new version), responses: { "200": { description: OK } } }
+  /profiles/{id}/reference-sizes:
+    post: { summary: Add reference brand size, responses: { "201": { description: Created } } }
+    get: { summary: List reference sizes, responses: { "200": { description: OK } } }
+  /reference-sizes/{id}:
+    delete: { summary: Delete reference size, responses: { "204": { description: Deleted } } }
+  /brands:
+    get: { summary: Search brands, security: [], responses: { "200": { description: OK } } }
+  /brands/{id}:
+    get: { summary: Brand details, security: [], responses: { "200": { description: OK } } }
+  /brands/{id}/size-charts:
+    get: { summary: Brand size charts, security: [], responses: { "200": { description: OK } } }
+  /categories:
+    get: { summary: Hierarchical categories, security: [], responses: { "200": { description: OK } } }
+  /products:
+    get: { summary: Search products, security: [], responses: { "200": { description: OK } } }
+  /products/{id}:
+    get: { summary: Product details, security: [], responses: { "200": { description: OK } } }
+  /products/{id}/size-charts:
+    get: { summary: Product size charts, security: [], responses: { "200": { description: OK } } }
+  /product-ingestions:
+    post: { summary: Submit product URL, responses: { "202": { description: Accepted } } }
+  /product-ingestions/{id}:
+    get: { summary: Get ingestion status, responses: { "200": { description: OK } } }
+  /product-ingestions/{id}/size-chart:
+    post: { summary: Submit manual chart, responses: { "200": { description: OK } } }
+  /product-ingestions/{id}/confirm-chart:
+    post: { summary: Confirm extracted chart, responses: { "200": { description: OK } } }
+  /recommendations:
+    post: { summary: Generate recommendation, responses: { "200": { description: OK } } }
+  /recommendations/by-url:
+    post: { summary: Generate recommendation by URL, responses: { "200": { description: OK } } }
+  /recommendations/{id}:
+    get: { summary: Retrieve recommendation snapshot, responses: { "200": { description: OK } } }
+  /profiles/{id}/recommendations:
+    get: { summary: Profile recommendation history, responses: { "200": { description: OK } } }
+  /recommendations/{id}/feedback:
+    post: { summary: Submit fit feedback, responses: { "201": { description: Created } } }

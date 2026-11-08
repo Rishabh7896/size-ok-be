@@ -1,0 +1,63 @@
+spring:
+  application:
+    name: sizeok-backend
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:file:./target/sizeok_local_db;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;AUTO_SERVER=TRUE}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER:org.h2.Driver}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+server:
+  port: ${PORT:8080}
+
+springdoc:
+  api-docs:
+    version: OPENAPI_3_1
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+sizeok:
+  security:
+    jwt-secret: ${SIZEOK_JWT_SECRET:f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8}
+    access-token-ttl-minutes: 60
+    refresh-token-ttl-days: 30
+  recommendation:
+    algorithm-version: "1.0"
+  ingestion:
+    allowed-hosts:
+      - myntra.com
+      - www.myntra.com
+      - amazon.in
+      - www.amazon.in
+      - amazon.com
+      - www.amazon.com
+      - zara.com
+      - www.zara.com
+      - hm.com
+      - www2.hm.com
+      - www.hm.com
+      - uniqlo.com
+      - www.uniqlo.com
+      - nike.com
+      - www.nike.com
+      - levi.in
+      - www.levi.in
+      - example.com

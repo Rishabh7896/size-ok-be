@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:sizeok_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+sizeok:
+  security:
+    jwt-secret: f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8
+    access-token-ttl-minutes: 60
+    refresh-token-ttl-days: 30
+  recommendation:
+    algorithm-version: "1.0"
